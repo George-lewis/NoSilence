@@ -1,0 +1,31 @@
+[project]
+name = "nosilence"
+version = "0.1.0"
+dependencies = [
+    "spotipy",
+    "pystray",
+    "pillow",
+    "pycaw",
+    "comtypes",
+    "requests",
+    "rich",
+    "pywin32",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pyinstaller",
+    "isort",
+    "black",
+    "mypy",
+    "flake8",
+]
+
+[build-system]
+requires = ["uv>=0.1.0"]
+build-backend = "uv.build"
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = false

@@ -1,0 +1,26 @@
+# Secrets
+**/secrets.json
+
+# Cache
+.spotify_cache
+.cache
+
+# Config
+config.json
+.flake8
+
+# Virtual environment
+.venv/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Gemini CLI
+.gemini/
+
