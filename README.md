@@ -2,6 +2,8 @@
 
 If your attention is as bad as mine and like me always need to have something playing but can't always be bothered to unpause Spotify when you're jumping between calls and videos then this is for you. This is a program that periodically checks your system audio and after a period of silence it will unpause Spotify for you. It's a Python program built for Windows with a tray icon, and most every parameter is configurable. You can use build.ps1 to build an .exe with pyinstaller, then run it on boot. This program was 95% vibe coded. Contributions are welcome.
 
+<img width="384" height="272" alt="image" src="https://github.com/user-attachments/assets/241dad28-4c57-4f5a-941a-6e548c1a0590" />
+
 ## Features
 
 *   **Silence Detection:** Monitors your system's audio output and detects when there is no sound playing.
