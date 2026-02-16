@@ -106,6 +106,8 @@ POLLING_INTERVAL = 1
 
 SPOTIFY_VOLUME_PERCENT = 100
 SYSTEM_VOLUME_PERCENT = 25
+CHANGE_SPOTIFY_VOLUME = True
+CHANGE_SYSTEM_VOLUME = True
 
 SPOTIFY_DEVICE_NAME = None
 
@@ -136,6 +138,7 @@ VOLUME_OPTIONS = [10, 25, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 def load_config():
     global SPOTIFY_DEVICE_NAME, SILENCE_TIMEOUT, SILENCE_THRESHOLD
     global SPOTIFY_VOLUME_PERCENT, SYSTEM_VOLUME_PERCENT, POLLING_INTERVAL
+    global CHANGE_SPOTIFY_VOLUME, CHANGE_SYSTEM_VOLUME
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
@@ -150,6 +153,12 @@ def load_config():
                     "system_volume_percent", SYSTEM_VOLUME_PERCENT
                 )
                 POLLING_INTERVAL = cfg.get("polling_interval", POLLING_INTERVAL)
+                CHANGE_SPOTIFY_VOLUME = cfg.get(
+                    "change_spotify_volume", CHANGE_SPOTIFY_VOLUME
+                )
+                CHANGE_SYSTEM_VOLUME = cfg.get(
+                    "change_system_volume", CHANGE_SYSTEM_VOLUME
+                )
         except Exception as e:
             console.log(f"[yellow]Failed to load config:[/yellow] {e}")
 
@@ -165,6 +174,8 @@ def save_config():
                     "spotify_volume_percent": SPOTIFY_VOLUME_PERCENT,
                     "system_volume_percent": SYSTEM_VOLUME_PERCENT,
                     "polling_interval": POLLING_INTERVAL,
+                    "change_spotify_volume": CHANGE_SPOTIFY_VOLUME,
+                    "change_system_volume": CHANGE_SYSTEM_VOLUME,
                 },
                 f,
                 indent=2,
@@ -350,7 +361,8 @@ def resume_spotify():
             console.log(f"[yellow]Device '{SPOTIFY_DEVICE_NAME}' not found.[/yellow]")
             return
 
-        set_system_volume(SYSTEM_VOLUME_PERCENT)
+        if CHANGE_SYSTEM_VOLUME:
+            set_system_volume(SYSTEM_VOLUME_PERCENT)
 
         playback = safe_sp_call(sp.current_playback)
 
@@ -387,7 +399,8 @@ def resume_spotify():
             else:
                 raise
 
-        set_spotify_volume(device_id)
+        if CHANGE_SPOTIFY_VOLUME:
+            set_spotify_volume(device_id)
 
     except Exception as e:
         console.log(f"[red]Playback error:[/red] {e}")
@@ -811,12 +824,40 @@ def toggle_pause(icon, item):
     console.log(f"Program [cyan]{'paused' if paused else 'resumed'}[/cyan]")
 
 
+def toggle_change_spotify_volume(icon, item):
+    global CHANGE_SPOTIFY_VOLUME
+    CHANGE_SPOTIFY_VOLUME = not CHANGE_SPOTIFY_VOLUME
+    save_config()
+    console.log(
+        f"Spotify volume control [cyan]{'enabled' if CHANGE_SPOTIFY_VOLUME else 'disabled'}[/cyan]"
+    )
+
+
+def toggle_change_system_volume(icon, item):
+    global CHANGE_SYSTEM_VOLUME
+    CHANGE_SYSTEM_VOLUME = not CHANGE_SYSTEM_VOLUME
+    save_config()
+    console.log(
+        f"System volume control [cyan]{'enabled' if CHANGE_SYSTEM_VOLUME else 'disabled'}[/cyan]"
+    )
+
+
 def create_menu(icon=None):
     def get_items():
         return [
             item(lambda item_obj: countdown_text, None, enabled=False),
             pystray.Menu.SEPARATOR,
             item(lambda i: "Resume" if paused else "Pause", toggle_pause),
+            item(
+                "Change Spotify Volume",
+                toggle_change_spotify_volume,
+                checked=lambda i: CHANGE_SPOTIFY_VOLUME,
+            ),
+            item(
+                "Change System Volume",
+                toggle_change_system_volume,
+                checked=lambda i: CHANGE_SYSTEM_VOLUME,
+            ),
             item("Devices", create_device_menu()),
             item("Silence Timeout", create_timeout_menu()),
             item("Polling Interval", create_polling_interval_menu()),

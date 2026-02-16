@@ -13,6 +13,7 @@ If your attention is as bad as mine and like me always need to have something pl
 *   **Configurable Polling Interval:** Choose how often the system checks for audio status.
 *   **Configurable Silence Threshold:** The minimum volume level below which audio is considered "silent." This prevents the application from mistakenly resuming playback during very quiet passages of music or system sounds that are not true silence. The application monitors the peak audio output of your system, which is a value between 0.0 (complete silence) and 1.0 (maximum volume). The default threshold is `0.001` (0.1%).
 *   **Configurable Resume Volume:** Separately configure the resume volume for both Spotify and the system master volume.
+*   **Toggle Volume Control:** Independently choose whether the application should change Spotify and/or system volume levels upon resumption.
 *   **Fallback Playback:** If it can't resume the previous track, it will try to start Spotify's "DJ" or a default playlist.
 
 ## Installation
@@ -63,6 +64,8 @@ The application will start in your system tray. The first time you run it, you w
 
 *   **Status**: The first menu item displays the current status of the program (e.g., "Monitoring...", "Resuming in 5s", "Paused").
 *   **Pause/Resume**: Temporarily pause or resume the automatic monitoring.
+*   **Change Spotify Volume**: Toggle whether the application should adjust Spotify volume when resuming.
+*   **Change System Volume**: Toggle whether the application should adjust system volume when resuming.
 *   **Devices**: A list of your available Spotify devices. Select one to set it as the target for playback.
 *   **Silence Timeout**: Choose how many seconds of silence should pass before playback resumes. Includes an "Other..." option for custom input.
 *   **Polling Interval**: Choose how often the system checks for audio status. Includes an "Other..." option for custom input.
@@ -97,6 +100,8 @@ The application creates a `config.json` file in the root of the project (or next
 *   `polling_interval`: The interval in seconds between audio checks.
 *   `spotify_volume_percent`: The volume percentage for Spotify when playback resumes.
 *   `system_volume_percent`: The system master volume percentage when playback resumes.
+*   `change_spotify_volume`: A boolean indicating whether to adjust Spotify volume upon resumption.
+*   `change_system_volume`: A boolean indicating whether to adjust system volume upon resumption.
 
 You can edit this file manually, but it's recommended to use the system tray menu to configure the application.
 
