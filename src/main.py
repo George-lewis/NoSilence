@@ -487,7 +487,7 @@ def monitor_loop():
                         non_spotify_sound_detected = True
 
                     new_text = "Other sound playing..."
-                
+
                 if spotify_playing:
                     last_sound_time = time.time()
                     # If only Spotify is playing, we reset the arming state
@@ -498,7 +498,9 @@ def monitor_loop():
                 elif others_playing:
                     # new_text is already set above
                     if REQUIRE_NON_SPOTIFY_SOUND:
-                        new_icon_state = "armed" if non_spotify_sound_detected else "unarmed"
+                        new_icon_state = (
+                            "armed" if non_spotify_sound_detected else "unarmed"
+                        )
                     else:
                         new_icon_state = "armed"
                 else:
@@ -521,7 +523,7 @@ def monitor_loop():
                             non_spotify_sound_detected = False
                             new_icon_state = "active"
                     else:
-                        new_text = "Idle (Waiting for sound)"
+                        new_text = "Idle"
                         last_sound_time = time.time()
                         new_icon_state = "unarmed"
 
