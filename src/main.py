@@ -24,7 +24,7 @@ install()
 console = Console()
 
 # Global variables
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 CLIENT_ID: str = ""
 CLIENT_SECRET: str = ""
 sp: spotipy.Spotify = None  # type: ignore
@@ -497,6 +497,10 @@ def monitor_loop():
                     else:
                         new_text = "Idle (Waiting for sound)"
                         last_sound_time = time.time()
+
+                if REQUIRE_NON_SPOTIFY_SOUND:
+                    status = "Armed" if non_spotify_sound_detected else "Not Armed"
+                    new_text = f"{new_text} ({status})"
 
             if new_text != countdown_text:
                 countdown_text = new_text

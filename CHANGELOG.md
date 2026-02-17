@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-02-16
+
+### Added
+- Display arming status in the main menu when "Wait for Sound" is enabled.
+
 ## [0.3.0] - 2026-02-16
 
 ### Added
