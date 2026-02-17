@@ -24,7 +24,7 @@ install()
 console = Console()
 
 # Global variables
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 CLIENT_ID: str = ""
 CLIENT_SECRET: str = ""
 sp: spotipy.Spotify = None  # type: ignore
@@ -104,6 +104,12 @@ SILENCE_TIMEOUT = 30
 # Default polling interval (seconds)
 POLLING_INTERVAL = 1
 
+# Minimum duration of non-Spotify sound to trigger auto-resume (seconds)
+MIN_SOUND_DURATION = 3
+
+# Whether to require non-Spotify sound before auto-resuming
+REQUIRE_NON_SPOTIFY_SOUND = True
+
 SPOTIFY_VOLUME_PERCENT = 100
 SYSTEM_VOLUME_PERCENT = 25
 CHANGE_SPOTIFY_VOLUME = True
@@ -116,6 +122,9 @@ FALLBACK_PLAYLIST_URI = "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
 
 # Preset timeout options (seconds)
 TIMEOUT_OPTIONS = [10, 30, 60, 120, 300]
+
+# Preset sound duration options (seconds)
+SOUND_DURATION_OPTIONS = [0, 1, 3, 5, 10]
 
 # Preset polling interval options (seconds)
 POLLING_OPTIONS = [0.5, 1, 2, 5, 10]
@@ -139,6 +148,7 @@ def load_config():
     global SPOTIFY_DEVICE_NAME, SILENCE_TIMEOUT, SILENCE_THRESHOLD
     global SPOTIFY_VOLUME_PERCENT, SYSTEM_VOLUME_PERCENT, POLLING_INTERVAL
     global CHANGE_SPOTIFY_VOLUME, CHANGE_SYSTEM_VOLUME
+    global MIN_SOUND_DURATION, REQUIRE_NON_SPOTIFY_SOUND
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
@@ -159,6 +169,10 @@ def load_config():
                 CHANGE_SYSTEM_VOLUME = cfg.get(
                     "change_system_volume", CHANGE_SYSTEM_VOLUME
                 )
+                MIN_SOUND_DURATION = cfg.get("min_sound_duration", MIN_SOUND_DURATION)
+                REQUIRE_NON_SPOTIFY_SOUND = cfg.get(
+                    "require_non_spotify_sound", REQUIRE_NON_SPOTIFY_SOUND
+                )
         except Exception as e:
             console.log(f"[yellow]Failed to load config:[/yellow] {e}")
 
@@ -176,6 +190,8 @@ def save_config():
                     "polling_interval": POLLING_INTERVAL,
                     "change_spotify_volume": CHANGE_SPOTIFY_VOLUME,
                     "change_system_volume": CHANGE_SYSTEM_VOLUME,
+                    "min_sound_duration": MIN_SOUND_DURATION,
+                    "require_non_spotify_sound": REQUIRE_NON_SPOTIFY_SOUND,
                 },
                 f,
                 indent=2,
@@ -276,6 +292,8 @@ def safe_sp_call(func, *args, retries=3, delay=2, **kwargs):
 last_sound_time = time.time()
 running = True
 paused = False
+non_spotify_sound_detected = False
+non_spotify_active_start_time = 0.0
 timeout_lock = threading.Lock()
 threshold_lock = threading.Lock()
 paused_lock = threading.Lock()
@@ -288,27 +306,33 @@ tray_icon = None
 # ==========================================================
 
 
-def is_audio_playing():
-    sessions = AudioUtilities.GetAllSessions()
+def get_audio_state():
+    try:
+        sessions = AudioUtilities.GetAllSessions()
+    except Exception:
+        return False, False
+
+    spotify_playing = False
+    others_playing = False
+
+    with threshold_lock:
+        threshold = SILENCE_THRESHOLD
 
     for session in sessions:
-        if not session.Process:
-            continue
-
         try:
             meter = session._ctl.QueryInterface(IAudioMeterInformation)
             peak = meter.GetPeakValue()
 
-            with threshold_lock:
-                threshold = SILENCE_THRESHOLD
-
             if peak > threshold:
-                return True
+                if session.Process and session.Process.name().lower() == "spotify.exe":
+                    spotify_playing = True
+                else:
+                    others_playing = True
 
         except Exception:
             continue
 
-    return False
+    return spotify_playing, others_playing
 
 
 # ==========================================================
@@ -413,6 +437,7 @@ def resume_spotify():
 
 def monitor_loop():
     global last_sound_time, countdown_text
+    global non_spotify_sound_detected, non_spotify_active_start_time
 
     pythoncom.CoInitialize()
 
@@ -423,23 +448,55 @@ def monitor_loop():
 
             if is_paused:
                 new_text = "Paused"
-                # Reset last_sound_time so it doesn't immediately resume upon unpausing
+                # Reset state so it doesn't immediately resume upon unpausing
                 last_sound_time = time.time()
-            elif is_audio_playing():
-                last_sound_time = time.time()
-                new_text = "Monitoring..."
+                non_spotify_sound_detected = False
+                non_spotify_active_start_time = 0.0
             else:
-                with timeout_lock:
-                    timeout_value = SILENCE_TIMEOUT
+                spotify_playing, others_playing = get_audio_state()
 
-                remaining_time = timeout_value - (time.time() - last_sound_time)
-
-                if remaining_time > 0:
-                    new_text = f"Resuming in {int(remaining_time)}s"
-                else:
-                    new_text = "Resuming now..."
-                    resume_spotify()
+                if others_playing:
                     last_sound_time = time.time()
+                    if non_spotify_active_start_time == 0.0:
+                        non_spotify_active_start_time = time.time()
+
+                    duration = time.time() - non_spotify_active_start_time
+                    if duration >= MIN_SOUND_DURATION:
+                        if not non_spotify_sound_detected and REQUIRE_NON_SPOTIFY_SOUND:
+                            msg = (
+                                f"Non-Spotify sound detected (>{MIN_SOUND_DURATION}s). "
+                                "Auto-resume armed."
+                            )
+                            console.log(f"[blue]{msg}[/blue]")
+                        non_spotify_sound_detected = True
+
+                    new_text = "Other sound playing..."
+                elif spotify_playing:
+                    last_sound_time = time.time()
+                    # If only Spotify is playing, we reset the arming state
+                    non_spotify_sound_detected = False
+                    non_spotify_active_start_time = 0.0
+                    new_text = "Spotify playing"
+                else:
+                    # Silence
+                    non_spotify_active_start_time = 0.0
+
+                    if not REQUIRE_NON_SPOTIFY_SOUND or non_spotify_sound_detected:
+                        with timeout_lock:
+                            timeout_value = SILENCE_TIMEOUT
+
+                        remaining_time = timeout_value - (time.time() - last_sound_time)
+
+                        if remaining_time > 0:
+                            new_text = f"Resuming in {int(remaining_time)}s"
+                        else:
+                            new_text = "Resuming now..."
+                            resume_spotify()
+                            last_sound_time = time.time()
+                            non_spotify_sound_detected = False
+                    else:
+                        new_text = "Idle (Waiting for sound)"
+                        last_sound_time = time.time()
 
             if new_text != countdown_text:
                 countdown_text = new_text
@@ -482,6 +539,65 @@ def set_custom_timeout(icon, item):
     if custom_timeout is not None:
         set_timeout(custom_timeout)
     root.destroy()
+
+
+def set_sound_duration(seconds):
+    global MIN_SOUND_DURATION
+    MIN_SOUND_DURATION = seconds
+    save_config()
+    console.log(f"Min sound duration set to [cyan]{seconds}[/cyan] seconds")
+
+
+def set_custom_sound_duration(icon, item):
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    custom_duration = simpledialog.askinteger(
+        "Custom Sound Duration",
+        "Enter minimum sound duration in seconds:",
+        parent=root,
+        minvalue=0,
+        maxvalue=300,
+    )
+    if custom_duration is not None:
+        set_sound_duration(custom_duration)
+    root.destroy()
+
+
+def create_sound_duration_menu():
+    def get_items():
+        menu_items = []
+        menu_items.append(
+            item(lambda i: f"Current: {MIN_SOUND_DURATION}s", None, enabled=False)
+        )
+        menu_items.append(pystray.Menu.SEPARATOR)
+
+        for seconds in SOUND_DURATION_OPTIONS:
+
+            def make_action(s):
+                def action(icon, item):
+                    set_sound_duration(s)
+
+                return action
+
+            def make_checked(s):
+                def checked(item):
+                    return MIN_SOUND_DURATION == s
+
+                return checked
+
+            menu_items.append(
+                item(
+                    f"{seconds} seconds",
+                    make_action(seconds),
+                    checked=make_checked(seconds),
+                    radio=True,
+                )
+            )
+        # Add "Other..." option
+        menu_items.append(item("Other...", set_custom_sound_duration))
+        return menu_items
+
+    return pystray.Menu(get_items)
 
 
 def create_timeout_menu():
@@ -824,22 +940,28 @@ def toggle_pause(icon, item):
     console.log(f"Program [cyan]{'paused' if paused else 'resumed'}[/cyan]")
 
 
+def toggle_require_non_spotify_sound(icon, item):
+    global REQUIRE_NON_SPOTIFY_SOUND
+    REQUIRE_NON_SPOTIFY_SOUND = not REQUIRE_NON_SPOTIFY_SOUND
+    save_config()
+    status = "enabled" if REQUIRE_NON_SPOTIFY_SOUND else "disabled"
+    console.log(f"Wait for sound [cyan]{status}[/cyan]")
+
+
 def toggle_change_spotify_volume(icon, item):
     global CHANGE_SPOTIFY_VOLUME
     CHANGE_SPOTIFY_VOLUME = not CHANGE_SPOTIFY_VOLUME
     save_config()
-    console.log(
-        f"Spotify volume control [cyan]{'enabled' if CHANGE_SPOTIFY_VOLUME else 'disabled'}[/cyan]"
-    )
+    status = "enabled" if CHANGE_SPOTIFY_VOLUME else "disabled"
+    console.log(f"Spotify volume control [cyan]{status}[/cyan]")
 
 
 def toggle_change_system_volume(icon, item):
     global CHANGE_SYSTEM_VOLUME
     CHANGE_SYSTEM_VOLUME = not CHANGE_SYSTEM_VOLUME
     save_config()
-    console.log(
-        f"System volume control [cyan]{'enabled' if CHANGE_SYSTEM_VOLUME else 'disabled'}[/cyan]"
-    )
+    status = "enabled" if CHANGE_SYSTEM_VOLUME else "disabled"
+    console.log(f"System volume control [cyan]{status}[/cyan]")
 
 
 def create_menu(icon=None):
@@ -847,7 +969,15 @@ def create_menu(icon=None):
         return [
             item(lambda item_obj: countdown_text, None, enabled=False),
             pystray.Menu.SEPARATOR,
-            item(lambda i: "Resume" if paused else "Pause", toggle_pause),
+            item(
+                lambda i: "Resume Program" if paused else "Pause Program",
+                toggle_pause,
+            ),
+            item(
+                "Wait for Sound",
+                toggle_require_non_spotify_sound,
+                checked=lambda i: REQUIRE_NON_SPOTIFY_SOUND,
+            ),
             item(
                 "Change Spotify Volume",
                 toggle_change_spotify_volume,
@@ -860,6 +990,7 @@ def create_menu(icon=None):
             ),
             item("Devices", create_device_menu()),
             item("Silence Timeout", create_timeout_menu()),
+            item("Sound Duration", create_sound_duration_menu()),
             item("Polling Interval", create_polling_interval_menu()),
             item("Silence Threshold", create_threshold_menu()),
             item("Spotify Volume", create_spotify_volume_menu()),

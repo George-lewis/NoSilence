@@ -8,6 +8,7 @@ If your attention is as bad as mine and like me always need to have something pl
 
 *   **Silence Detection:** Monitors your system's audio output and detects when there is no sound playing.
 *   **Automatic Resume:** Resumes Spotify playback on your chosen device after a configurable period of silence.
+*   **Smart Arming (Wait for Sound):** Prevents accidental resumes if you manually pause Spotify. The app waits for a non-Spotify sound source to play for a minimum duration before it "arms" the auto-resume logic.
 *   **System Tray Integration:** Runs discreetly in the system tray.
 *   **Device Selection:** Choose which Spotify device to control from the tray menu.
 *   **Pause/Resume:** Temporarily disable/enable the automatic resume feature.
@@ -66,10 +67,12 @@ The application will start in your system tray. The first time you run it, you w
 
 *   **Status**: The first menu item displays the current status of the program (e.g., "Monitoring...", "Resuming in 5s", "Paused").
 *   **Pause/Resume**: Temporarily pause or resume the automatic monitoring.
+*   **Wait for Sound**: Toggle the "Smart Arming" behavior. If enabled, the app will only auto-resume if it has first detected a non-Spotify sound.
 *   **Change Spotify Volume**: Toggle whether the application should adjust Spotify volume when resuming.
 *   **Change System Volume**: Toggle whether the application should adjust system volume when resuming.
 *   **Devices**: A list of your available Spotify devices. Select one to set it as the target for playback.
 *   **Silence Timeout**: Choose how many seconds of silence should pass before playback resumes. Includes an "Other..." option for custom input.
+*   **Sound Duration**: Set the minimum duration (in seconds) that non-Spotify audio must play to "arm" the auto-resume. Includes an "Other..." option for custom input.
 *   **Polling Interval**: Choose how often the system checks for audio status. Includes an "Other..." option for custom input.
 *   **Silence Threshold**: Choose the volume threshold for silence detection. Includes an "Other..." option for custom input.
 *   **Spotify Volume**: Set the volume for Spotify when playback resumes. Includes an "Other..." option for custom input.
@@ -104,6 +107,8 @@ The application creates a `config.json` file in the root of the project (or next
 *   `system_volume_percent`: The system master volume percentage when playback resumes.
 *   `change_spotify_volume`: A boolean indicating whether to adjust Spotify volume upon resumption.
 *   `change_system_volume`: A boolean indicating whether to adjust system volume upon resumption.
+*   `min_sound_duration`: The minimum duration in seconds of non-Spotify sound required to arm the auto-resume.
+*   `require_non_spotify_sound`: A boolean indicating whether to wait for non-Spotify sound before auto-resuming.
 
 You can edit this file manually, but it's recommended to use the system tray menu to configure the application.
 
