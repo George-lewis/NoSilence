@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-02-16
+
+### Added
+- Dynamic tray icon states (active, armed, unarmed) to indicate monitoring status.
+
+### Changed
+- Simplified "Idle" status text by removing the "(Waiting for sound)" suffix.
+
 ## [0.3.1] - 2026-02-16
 
 ### Added

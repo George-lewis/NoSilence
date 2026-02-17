@@ -24,7 +24,7 @@ install()
 console = Console()
 
 # Global variables
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 CLIENT_ID: str = ""
 CLIENT_SECRET: str = ""
 sp: spotipy.Spotify = None  # type: ignore
