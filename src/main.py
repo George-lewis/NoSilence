@@ -24,7 +24,7 @@ install()
 console = Console()
 
 # Global variables
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 CLIENT_ID: str = ""
 CLIENT_SECRET: str = ""
 sp: spotipy.Spotify = None  # type: ignore
@@ -105,7 +105,7 @@ SILENCE_TIMEOUT = 30
 POLLING_INTERVAL = 1
 
 # Minimum duration of non-Spotify sound to trigger auto-resume (seconds)
-MIN_SOUND_DURATION = 3
+MIN_ACTIVATION_DURATION = 3
 
 # Whether to require non-Spotify sound before auto-resuming
 REQUIRE_NON_SPOTIFY_SOUND = True
@@ -123,8 +123,8 @@ FALLBACK_PLAYLIST_URI = "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
 # Preset timeout options (seconds)
 TIMEOUT_OPTIONS = [10, 30, 60, 120, 300]
 
-# Preset sound duration options (seconds)
-SOUND_DURATION_OPTIONS = [0, 1, 3, 5, 10]
+# Preset activation duration options (seconds)
+ACTIVATION_DURATION_OPTIONS = [0, 1, 3, 5, 10]
 
 # Preset polling interval options (seconds)
 POLLING_OPTIONS = [0.5, 1, 2, 5, 10]
@@ -148,7 +148,7 @@ def load_config():
     global SPOTIFY_DEVICE_NAME, SILENCE_TIMEOUT, SILENCE_THRESHOLD
     global SPOTIFY_VOLUME_PERCENT, SYSTEM_VOLUME_PERCENT, POLLING_INTERVAL
     global CHANGE_SPOTIFY_VOLUME, CHANGE_SYSTEM_VOLUME
-    global MIN_SOUND_DURATION, REQUIRE_NON_SPOTIFY_SOUND
+    global MIN_ACTIVATION_DURATION, REQUIRE_NON_SPOTIFY_SOUND
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
@@ -169,7 +169,11 @@ def load_config():
                 CHANGE_SYSTEM_VOLUME = cfg.get(
                     "change_system_volume", CHANGE_SYSTEM_VOLUME
                 )
-                MIN_SOUND_DURATION = cfg.get("min_sound_duration", MIN_SOUND_DURATION)
+                # Check for both old and new config keys for backward compatibility
+                MIN_ACTIVATION_DURATION = cfg.get(
+                    "min_activation_duration",
+                    cfg.get("min_sound_duration", MIN_ACTIVATION_DURATION),
+                )
                 REQUIRE_NON_SPOTIFY_SOUND = cfg.get(
                     "require_non_spotify_sound", REQUIRE_NON_SPOTIFY_SOUND
                 )
@@ -190,7 +194,7 @@ def save_config():
                     "polling_interval": POLLING_INTERVAL,
                     "change_spotify_volume": CHANGE_SPOTIFY_VOLUME,
                     "change_system_volume": CHANGE_SYSTEM_VOLUME,
-                    "min_sound_duration": MIN_SOUND_DURATION,
+                    "min_activation_duration": MIN_ACTIVATION_DURATION,
                     "require_non_spotify_sound": REQUIRE_NON_SPOTIFY_SOUND,
                 },
                 f,
@@ -477,10 +481,10 @@ def monitor_loop():
                         non_spotify_active_start_time = time.time()
 
                     duration = time.time() - non_spotify_active_start_time
-                    if duration >= MIN_SOUND_DURATION:
+                    if duration >= MIN_ACTIVATION_DURATION:
                         if not non_spotify_sound_detected and REQUIRE_NON_SPOTIFY_SOUND:
                             msg = (
-                                f"Non-Spotify sound detected (>{MIN_SOUND_DURATION}s). "
+                                f"Non-Spotify sound detected (>{MIN_ACTIVATION_DURATION}s). "
                                 "Auto-resume armed."
                             )
                             console.log(f"[blue]{msg}[/blue]")
@@ -586,47 +590,47 @@ def set_custom_timeout(icon, item):
     root.destroy()
 
 
-def set_sound_duration(seconds):
-    global MIN_SOUND_DURATION
-    MIN_SOUND_DURATION = seconds
+def set_activation_duration(seconds):
+    global MIN_ACTIVATION_DURATION
+    MIN_ACTIVATION_DURATION = seconds
     save_config()
-    console.log(f"Min sound duration set to [cyan]{seconds}[/cyan] seconds")
+    console.log(f"Min activation duration set to [cyan]{seconds}[/cyan] seconds")
 
 
-def set_custom_sound_duration(icon, item):
+def set_custom_activation_duration(icon, item):
     root = tk.Tk()
     root.withdraw()  # Hide the main window
     custom_duration = simpledialog.askinteger(
-        "Custom Sound Duration",
-        "Enter minimum sound duration in seconds:",
+        "Custom Activation Duration",
+        "Enter minimum activation duration in seconds:",
         parent=root,
         minvalue=0,
         maxvalue=300,
     )
     if custom_duration is not None:
-        set_sound_duration(custom_duration)
+        set_activation_duration(custom_duration)
     root.destroy()
 
 
-def create_sound_duration_menu():
+def create_activation_duration_menu():
     def get_items():
         menu_items = []
         menu_items.append(
-            item(lambda i: f"Current: {MIN_SOUND_DURATION}s", None, enabled=False)
+            item(lambda i: f"Current: {MIN_ACTIVATION_DURATION}s", None, enabled=False)
         )
         menu_items.append(pystray.Menu.SEPARATOR)
 
-        for seconds in SOUND_DURATION_OPTIONS:
+        for seconds in ACTIVATION_DURATION_OPTIONS:
 
             def make_action(s):
                 def action(icon, item):
-                    set_sound_duration(s)
+                    set_activation_duration(s)
 
                 return action
 
             def make_checked(s):
                 def checked(item):
-                    return MIN_SOUND_DURATION == s
+                    return MIN_ACTIVATION_DURATION == s
 
                 return checked
 
@@ -639,7 +643,7 @@ def create_sound_duration_menu():
                 )
             )
         # Add "Other..." option
-        menu_items.append(item("Other...", set_custom_sound_duration))
+        menu_items.append(item("Other...", set_custom_activation_duration))
         return menu_items
 
     return pystray.Menu(get_items)
@@ -1036,7 +1040,7 @@ def create_menu(icon=None):
             ),
             item("Devices", create_device_menu()),
             item("Silence Timeout", create_timeout_menu()),
-            item("Sound Duration", create_sound_duration_menu()),
+            item("Activation Duration", create_activation_duration_menu()),
             item("Polling Interval", create_polling_interval_menu()),
             item("Silence Threshold", create_threshold_menu()),
             item("Spotify Volume", create_spotify_volume_menu()),

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.2] - 2026-02-16
+
+### Changed
+- Renamed "Sound Duration" to "Activation Duration" across UI, code, and documentation for better clarity.
+
 ## [0.4.1] - 2026-02-16
 
 ### Added
