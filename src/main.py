@@ -24,7 +24,7 @@ install()
 console = Console()
 
 # Global variables
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 CLIENT_ID: str = ""
 CLIENT_SECRET: str = ""
 sp: spotipy.Spotify = None  # type: ignore
@@ -1017,6 +1017,7 @@ def create_menu(icon=None):
             item(
                 lambda i: "Resume Program" if paused else "Pause Program",
                 toggle_pause,
+                default=True,
             ),
             item(
                 "Wait for Sound",

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2026-02-16
+
+### Added
+- Left-clicking the tray icon now toggles between Pause and Resume.
+
 ## [0.4.0] - 2026-02-16
 
 ### Added
