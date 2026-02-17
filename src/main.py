@@ -301,6 +301,20 @@ countdown_text = "Monitoring..."
 tray_icon = None
 
 
+def create_icon_image(color=(30, 215, 96)):
+    img = Image.new("RGB", (64, 64), color)
+    draw = ImageDraw.Draw(img)
+    draw.ellipse((16, 16, 48, 48), fill="black")
+    return img
+
+
+ICON_ACTIVE = create_icon_image((30, 215, 96))  # Spotify Green
+ICON_PAUSED = create_icon_image((255, 60, 60))  # Red
+ICON_UNARMED = create_icon_image((120, 120, 120))  # Gray
+ICON_ARMED = create_icon_image((255, 215, 0))  # Yellow
+current_icon_state = "active"
+
+
 # ==========================================================
 # AUDIO MONITORING
 # ==========================================================
@@ -436,7 +450,7 @@ def resume_spotify():
 
 
 def monitor_loop():
-    global last_sound_time, countdown_text
+    global last_sound_time, countdown_text, current_icon_state
     global non_spotify_sound_detected, non_spotify_active_start_time
 
     pythoncom.CoInitialize()
@@ -446,8 +460,10 @@ def monitor_loop():
             with paused_lock:
                 is_paused = paused
 
+            new_icon_state = "active"
             if is_paused:
                 new_text = "Paused"
+                new_icon_state = "paused"
                 # Reset state so it doesn't immediately resume upon unpausing
                 last_sound_time = time.time()
                 non_spotify_sound_detected = False
@@ -471,12 +487,20 @@ def monitor_loop():
                         non_spotify_sound_detected = True
 
                     new_text = "Other sound playing..."
-                elif spotify_playing:
+                
+                if spotify_playing:
                     last_sound_time = time.time()
                     # If only Spotify is playing, we reset the arming state
                     non_spotify_sound_detected = False
                     non_spotify_active_start_time = 0.0
                     new_text = "Spotify playing"
+                    new_icon_state = "active"
+                elif others_playing:
+                    # new_text is already set above
+                    if REQUIRE_NON_SPOTIFY_SOUND:
+                        new_icon_state = "armed" if non_spotify_sound_detected else "unarmed"
+                    else:
+                        new_icon_state = "armed"
                 else:
                     # Silence
                     non_spotify_active_start_time = 0.0
@@ -489,18 +513,33 @@ def monitor_loop():
 
                         if remaining_time > 0:
                             new_text = f"Resuming in {int(remaining_time)}s"
+                            new_icon_state = "armed"
                         else:
                             new_text = "Resuming now..."
                             resume_spotify()
                             last_sound_time = time.time()
                             non_spotify_sound_detected = False
+                            new_icon_state = "active"
                     else:
                         new_text = "Idle (Waiting for sound)"
                         last_sound_time = time.time()
+                        new_icon_state = "unarmed"
 
                 if REQUIRE_NON_SPOTIFY_SOUND:
                     status = "Armed" if non_spotify_sound_detected else "Not Armed"
                     new_text = f"{new_text} ({status})"
+
+            if new_icon_state != current_icon_state:
+                current_icon_state = new_icon_state
+                if tray_icon:
+                    if new_icon_state == "active":
+                        tray_icon.icon = ICON_ACTIVE
+                    elif new_icon_state == "paused":
+                        tray_icon.icon = ICON_PAUSED
+                    elif new_icon_state == "unarmed":
+                        tray_icon.icon = ICON_UNARMED
+                    elif new_icon_state == "armed":
+                        tray_icon.icon = ICON_ARMED
 
             if new_text != countdown_text:
                 countdown_text = new_text
@@ -1008,16 +1047,9 @@ def create_menu(icon=None):
 
 
 def setup_tray():
-    icon = pystray.Icon("NoSilence", create_icon(), "NoSilence")
+    icon = pystray.Icon("NoSilence", ICON_ACTIVE, "NoSilence")
     icon.menu = create_menu(icon)
     return icon
-
-
-def create_icon():
-    img = Image.new("RGB", (64, 64), (30, 215, 96))
-    draw = ImageDraw.Draw(img)
-    draw.ellipse((16, 16, 48, 48), fill="black")
-    return img
 
 
 def on_exit(icon, item):
